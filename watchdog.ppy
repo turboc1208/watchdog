@@ -1,0 +1,59 @@
+import appdaemon.plugins.hass.hassapi as hass
+import random
+import datetime
+m4_include(/home/appdaemon/code/appdaemon/adlib_imports.pyi)
+
+class watchdog(hass.Hass):
+
+  def initialize(self):
+    time = datetime.datetime.now()
+    self.watchlist=self.build_watchlist()
+    self.run_every(self.run_every_c, time, 60*5)
+
+  def run_every_c(self,kwargs):
+    testlist=self.build_watchlist()
+    for a in self.watchlist:
+      if not a in testlist:
+        self.log("app {} is no longer active".format(a))
+      else:
+        for b in self.watchlist[a]:
+          if not b in testlist[a]:
+            self.log("app {} no longer listening for target {}".format(a,self.watchlist[a][b]))
+    
+    for a in testlist:
+      if not a in self.watchlist:
+        self.watchlist[a]=testlist[a]
+        self.log("inew app {} being added".format(a))
+      for b in testlist[a]:
+        if not b in testlist[a]:
+          self.watchlist[a][b]=testlist[a][b]
+          self.log("new app {} target {} being added".format(a,b))
+
+    self.log("Check completed")
+
+    self.watchlist=testlist     
+    
+  def build_watchlist(self,**kwargs):
+    watchlist={}
+    self.log("running watchdog pass")
+    c_schedule=self.get_scheduler_entries()
+    for a in c_schedule:
+      if not a in watchlist:
+        watchlist[a]={}
+      for b in c_schedule[a]:
+        if not b in watchlist[a]:
+          watchlist[a][b]={"type":"schedule","target":c_schedule[a][b]["kwargs"]["target"] if "target" in c_schedule[a][b]["kwargs"] else {}}
+    #self.log("watchlist={}".format(watchlist))
+
+    c_callback=self.get_callback_entries()
+    for a in c_callback:
+      if not a in watchlist:
+        watchlist[a]={}
+      for b in c_callback[a]:
+        if b not in watchlist[a]:
+          watchlist[a][b]={"type":"state","target":c_callback[a][b]["kwargs"]["target"] if "target" in c_callback[a][b]["kwargs"] else "","entity":
+          c_callback[a][b]["kwargs"]["ent"] if "ent" in c_callback[a][b]["kwargs"]else ""}
+    #self.log("watchlist={}".format(watchlist))
+    return(watchlist)
+
+m4_include(/home/appdaemon/code/appdaemon/adlib.pyi)
